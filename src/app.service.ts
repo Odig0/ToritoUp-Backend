@@ -1,8 +1,9 @@
+// app.service.ts
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class AppService {
   getHello(): string {
-  return 'This service has been removed.';
+    return 'Hello World!';
   }
 }
