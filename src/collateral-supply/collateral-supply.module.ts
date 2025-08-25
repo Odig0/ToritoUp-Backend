@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CollateralService } from './collateral-supply.service';
 import { CollateralSupplyController } from './collateral-supply.controller';
 import { BlockchainService } from '../contracts/blockchain.service';
+import { CanonicalLogService } from '../common/services/canonical-log.service';
 import {
   Collateral,
   CollateralSchema,
@@ -15,7 +16,7 @@ import {
     ]),
   ],
   controllers: [CollateralSupplyController],
-  providers: [CollateralService, BlockchainService],
+  providers: [CollateralService, BlockchainService, CanonicalLogService],
   exports: [CollateralService, BlockchainService], // Export for use in other modules
 })
 export class CollateralModule {}

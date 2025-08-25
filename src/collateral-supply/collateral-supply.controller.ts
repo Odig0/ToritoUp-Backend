@@ -4,7 +4,7 @@ import { CreateCollateralDto } from './dto/create-collateral-supply.dto';
 import { SupplyStatus } from './entities/collateral-supply.entity';
 import { BlockchainService } from '../contracts/blockchain.service';
 
-@Controller('collateral-supply')
+@Controller('collateral')
 export class CollateralSupplyController {
   constructor(
     private readonly collateralSupplyService: CollateralService,

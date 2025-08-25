@@ -6,6 +6,7 @@ import {
   CONTRACT_ADDRESSES, 
   SUPPORTED_TOKENS 
 } from './torito.abi';
+import { CanonicalLogService } from '../common/services/canonical-log.service';
 
 @Injectable()
 export class BlockchainService {
@@ -13,10 +14,11 @@ export class BlockchainService {
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
 
-  constructor() {
+  constructor(private readonly canonicalLogService: CanonicalLogService) {
     // Initialize provider and wallet
-    const rpcUrl = process.env.SEPOLIA_RPC_URL;
-    const privateKey = process.env.PRIVATE_KEY;
+    // Trim environment values to avoid issues from trailing newlines/spaces
+    const rpcUrl = process.env.SEPOLIA_RPC_URL ? process.env.SEPOLIA_RPC_URL.trim() : undefined;
+    const privateKey = process.env.PRIVATE_KEY ? process.env.PRIVATE_KEY.trim() : undefined;
 
     if (!privateKey) {
       throw new Error('PRIVATE_KEY environment variable is required');
@@ -55,6 +57,9 @@ export class BlockchainService {
     amount: string,
     onBehalfOf?: string
   ): Promise<ethers.TransactionResponse> {
+    const startTime = Date.now();
+    const requestId = Math.random().toString(36).substring(2, 15);
+    
     try {
       const aavePool = new ethers.Contract(
         CONTRACT_ADDRESSES.AAVE_POOL,
@@ -80,8 +85,20 @@ export class BlockchainService {
         );
         
         const wrapTx = await wethContract.deposit({ value: amount });
-        await wrapTx.wait();
-        this.logger.log(`ETH wrapped to WETH: ${wrapTx.hash}`);
+        const wrapReceipt = await wrapTx.wait();
+        
+        // Log wrap transaction
+        this.canonicalLogService.logTransaction({
+          requestId,
+          operation: 'eth_wrap',
+          tokenSymbol: 'ETH',
+          amount: ethers.formatEther(amount),
+          transactionHash: wrapTx.hash,
+          blockNumber: wrapReceipt.blockNumber,
+          gasUsed: wrapReceipt.gasUsed.toString(),
+          duration: (Date.now() - startTime) / 1000,
+          success: true,
+        });
         
         // Approve WETH to Aave Pool
         const wethApproval = new ethers.Contract(
@@ -91,12 +108,37 @@ export class BlockchainService {
         );
         
         const approveTx = await wethApproval.approve(CONTRACT_ADDRESSES.AAVE_POOL, amount);
-        await approveTx.wait();
-        this.logger.log(`WETH approved to Aave: ${approveTx.hash}`);
+        const approveReceipt = await approveTx.wait();
+        
+        // Log approval transaction
+        this.canonicalLogService.logTransaction({
+          requestId,
+          operation: 'weth_approve',
+          tokenSymbol: 'WETH',
+          amount: ethers.formatEther(amount),
+          transactionHash: approveTx.hash,
+          blockNumber: approveReceipt.blockNumber,
+          gasUsed: approveReceipt.gasUsed.toString(),
+          duration: (Date.now() - startTime) / 1000,
+          success: true,
+        });
         
         // Now supply WETH to Aave
         const supplyTx = await aavePool.supply(wethAddress, amount, beneficiary, 0);
-        await supplyTx.wait();
+        const supplyReceipt = await supplyTx.wait();
+        
+        // Log Aave supply operation
+        this.canonicalLogService.logAaveOperation({
+          requestId,
+          operation: 'supply',
+          token: 'WETH',
+          amount: ethers.formatEther(amount),
+          user: beneficiary,
+          aavePool: CONTRACT_ADDRESSES.AAVE_POOL,
+          duration: (Date.now() - startTime) / 1000,
+          success: true,
+        });
+        
         this.logger.log(`WETH supply transaction sent to Aave: ${supplyTx.hash}`);
         
         // Return the wrap transaction (shows ETH Value in Etherscan)
@@ -118,10 +160,35 @@ export class BlockchainService {
         
         const tx = await aavePool.supply(token, amount, beneficiary, 0);
         
+        // Log ERC20 supply operation
+        this.canonicalLogService.logAaveOperation({
+          requestId,
+          operation: 'supply',
+          token: token,
+          amount: amount,
+          user: beneficiary,
+          aavePool: CONTRACT_ADDRESSES.AAVE_POOL,
+          duration: (Date.now() - startTime) / 1000,
+          success: true,
+        });
+        
         this.logger.log(`Token supply transaction sent to Aave: ${tx.hash}`);
         return tx;
       }
     } catch (error) {
+      // Log error
+      this.canonicalLogService.logAaveOperation({
+        requestId,
+        operation: 'supply',
+        token: token,
+        amount: amount,
+        user: onBehalfOf || this.wallet.address,
+        aavePool: CONTRACT_ADDRESSES.AAVE_POOL,
+        duration: (Date.now() - startTime) / 1000,
+        success: false,
+        error: error.message,
+      });
+      
       this.logger.error(`Error supplying to Aave: ${error.message}`);
       throw error;
     }
