@@ -209,3 +209,34 @@ curl -X PATCH http://localhost:3000/collateral/64f1b2c3d4e5f67890123456/status \
 Respuesta esperada (200 OK): objeto actualizado con el nuevo `status` y `lastUpdateTimestamp`.
 
 ---
+
+## Comando de despliegue (Cloud Build → Cloud Run)
+
+Puedes usar el `cloudbuild.yaml` incluido para construir la imagen y desplegar automáticamente a Cloud Run.
+
+Ejemplo (PowerShell) — Recommended (Cloud Build):
+
+```powershell
+$env:PROJECT_ID = "<YOUR_GCP_PROJECT_ID>"
+gcloud builds submit --config=cloudbuild.yaml --project $env:PROJECT_ID
+```
+
+Alternativa manual (Docker → GCR → Cloud Run):
+
+```powershell
+$env:PROJECT_ID = "<YOUR_GCP_PROJECT_ID>"
+# Build image
+docker build -t gcr.io/$env:PROJECT_ID/toritoup-backend:latest .
+# Push to Container Registry
+docker push gcr.io/$env:PROJECT_ID/toritoup-backend:latest
+# Deploy to Cloud Run (reemplaza las env vars por tus secretos o usa Secret Manager)
+gcloud run deploy toritoup-backend \
+  --image gcr.io/$env:PROJECT_ID/toritoup-backend:latest \
+  --region us-central1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --set-env-vars "MONGO_URL=<MONGO_URL>,PRIVATE_KEY=<PRIVATE_KEY>,SEPOLIA_RPC_URL=<SEPOLIA_RPC_URL>"
+```
+
+Reemplaza los placeholders `<YOUR_GCP_PROJECT_ID>`, `<MONGO_URL>`, `<PRIVATE_KEY>` y `<SEPOLIA_RPC_URL>` por los valores reales o configúralos desde Secret Manager en Cloud Run.
+
