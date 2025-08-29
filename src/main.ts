@@ -31,7 +31,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   // Register canonical logging interceptor globally
   app.useGlobalInterceptors(app.get(CanonicalLoggingInterceptor));
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT || 8080);
 }
 
 bootstrap();

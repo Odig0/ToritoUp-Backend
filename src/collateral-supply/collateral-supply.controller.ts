@@ -44,10 +44,10 @@ export class CollateralSupplyController {
   }
 
   // Get total collateral value for a user
-  @Get('owner/:address/total-value')
-  async getTotalCollateralValue(@Param('address') address: string) {
-    const totalValue = await this.collateralSupplyService.getTotalCollateralValue(address);
-    return { owner: address, totalValueUSD: totalValue };
+    @Get('owner/total-value')
+    async getTotalCollateralValue(@Body() body: { address: string }) {
+      const totalValue = await this.collateralSupplyService.getTotalCollateralValue(body.address);
+      return { owner: body.address, totalValueUSD: totalValue };
   }
 
   // Update collateral status (for withdrawals, liquidations)
