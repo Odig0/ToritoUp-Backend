@@ -28,8 +28,10 @@ export class CollateralService {
         throw new BadRequestException('Collateral supply already recorded for this transaction');
       }
 
+      // Normalize owner to lowercase so queries (which use owner.toLowerCase()) match stored docs
       const collateral = new this.collateralModel({
         ...createCollateralDto,
+        owner: createCollateralDto.owner.toLowerCase(),
         status: SupplyStatus.ACTIVE,
         suppliedAt: new Date(),
         lastUpdateTimestamp: new Date(),
@@ -55,16 +57,20 @@ export class CollateralService {
     if (!isAddress(owner)) {
       throw new BadRequestException('Invalid Ethereum address');
     }
-    return await this.collateralModel.find({ owner: owner.toLowerCase() }).exec();
+  // Use case-insensitive match so existing documents with mixed-case addresses are found
+  const ownerRegex = new RegExp(`^${owner}$`, 'i');
+  return await this.collateralModel.find({ owner: ownerRegex }).exec();
   }
 
   async findActiveByOwner(owner: string): Promise<Collateral[]> {
     if (!isAddress(owner)) {
       throw new BadRequestException('Invalid Ethereum address');
     }
-    return await this.collateralModel.find({ 
-      owner: owner.toLowerCase(), 
-      status: SupplyStatus.ACTIVE 
+    // Case-insensitive owner match to include previously-stored documents
+    const ownerRegex = new RegExp(`^${owner}$`, 'i');
+    return await this.collateralModel.find({
+      owner: ownerRegex,
+      status: SupplyStatus.ACTIVE,
     }).exec();
   }
 
@@ -129,7 +135,7 @@ export class CollateralService {
     let totalValue = 0n;
     
     for (const collateral of activeCollaterals) {
-      totalValue += BigInt(collateral.usdValueAtSupply || '0');
+      totalValue += BigInt(collateral.usdValueAtSupply );
     }
 
     return totalValue.toString();
